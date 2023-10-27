@@ -59,7 +59,7 @@ bool parseServer(const char* server, sockaddr_storage* parsed) {
 int PrivateDnsConfiguration::set(int32_t netId, uint32_t mark,
                                  const std::vector<std::string>& servers, const std::string& name,
                                  const std::string& caCert) {
-    LOG(DEBUG) << "PrivateDnsConfiguration::set(" << netId << ", 0x" << std::hex << mark << std::dec
+    LOG(VERBOSE) << "PrivateDnsConfiguration::set(" << netId << ", 0x" << std::hex << mark << std::dec
                << ", " << servers.size() << ", " << name << ")";
 
     // Parse the list of servers that has been passed in
@@ -139,7 +139,7 @@ PrivateDnsStatus PrivateDnsConfiguration::getStatus(unsigned netId) const {
 }
 
 void PrivateDnsConfiguration::clear(unsigned netId) {
-    LOG(DEBUG) << "PrivateDnsConfiguration::clear(" << netId << ")";
+    LOG(VERBOSE) << "PrivateDnsConfiguration::clear(" << netId << ")";
     std::lock_guard guard(mPrivateDnsLock);
     mPrivateDnsModes.erase(netId);
     mPrivateDnsTransports.erase(netId);
@@ -239,7 +239,7 @@ void PrivateDnsConfiguration::startValidation(const ServerIdentity& identity, un
 
 void PrivateDnsConfiguration::sendPrivateDnsValidationEvent(const ServerIdentity& identity,
                                                             unsigned netId, bool success) {
-    LOG(DEBUG) << "Sending validation " << (success ? "success" : "failure") << " event on netId "
+    LOG(VERBOSE) << "Sending validation " << (success ? "success" : "failure") << " event on netId "
                << netId << " for " << identity.sockaddr.ip().toString() << " with hostname {"
                << identity.provider << "}";
     // Send a validation event to NetdEventListenerService.

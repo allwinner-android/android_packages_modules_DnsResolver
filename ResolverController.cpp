@@ -48,7 +48,7 @@ namespace net {
 namespace {
 
 void sendNat64PrefixEvent(const Dns64Configuration::Nat64PrefixInfo& args) {
-    LOG(DEBUG) << "Sending Nat64Prefix " << (args.added ? "added" : "removed") << " event on netId "
+    LOG(VERBOSE) << "Sending Nat64Prefix " << (args.added ? "added" : "removed") << " event on netId "
                << args.netId << " with prefix " << args.prefixString << "/"
                << (int)(args.prefixLength);
     // Send a nat64 prefix event to NetdEventListenerService.
@@ -274,7 +274,7 @@ void ResolverController::stopPrefix64Discovery(int32_t netId) {
 int ResolverController::getPrefix64(unsigned netId, netdutils::IPPrefix* prefix) {
     netdutils::IPPrefix p = mDns64Configuration.getPrefix64(netId);
     if (p.family() != AF_INET6 || p.length() == 0) {
-        LOG(INFO) << "No valid NAT64 prefix (" << netId << ", " << p.toString().c_str() << ")";
+        LOG(VERBOSE) << "No valid NAT64 prefix (" << netId << ", " << p.toString().c_str() << ")";
 
         return -ENOENT;
     }

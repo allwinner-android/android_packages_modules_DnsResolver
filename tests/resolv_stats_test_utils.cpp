@@ -87,7 +87,7 @@ NetworkDnsEventReported fromNetworkDnsEventReportedStr(const std::string& str) {
         std::smatch protoField;
         std::regex_match(match_str, protoField, pieces_regex);
         int value = 0;
-        LOG(DEBUG) << "Str:" << match_str << " Name:" << protoField[1]
+        LOG(VERBOSE) << "Str:" << match_str << " Name:" << protoField[1]
                    << " Value:" << protoField[2];
         // Parsing each field of the proto NetworkDnsEventReported
         if (strproto == 1) {

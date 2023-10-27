@@ -47,7 +47,7 @@ int DnsTlsSessionCache::newSessionCallback(SSL* ssl, SSL_SESSION* session) {
         LOG(ERROR) << "null transport in new session callback";
         return 0;
     }
-    LOG(DEBUG) << "Recording session";
+    LOG(VERBOSE) << "Recording session";
     cache->recordSession(session);
     return 1;  // Increment the refcount of session.
 }
@@ -56,7 +56,7 @@ void DnsTlsSessionCache::recordSession(SSL_SESSION* session) {
     std::lock_guard guard(mLock);
     mSessions.emplace_front(session);
     if (mSessions.size() > kMaxSize) {
-        LOG(DEBUG) << "Too many sessions; trimming";
+        LOG(VERBOSE) << "Too many sessions; trimming";
         mSessions.pop_back();
     }
 }
@@ -64,7 +64,7 @@ void DnsTlsSessionCache::recordSession(SSL_SESSION* session) {
 bssl::UniquePtr<SSL_SESSION> DnsTlsSessionCache::getSession() {
     std::lock_guard guard(mLock);
     if (mSessions.size() == 0) {
-        LOG(DEBUG) << "No known sessions";
+        LOG(VERBOSE) << "No known sessions";
         return nullptr;
     }
     bssl::UniquePtr<SSL_SESSION> ret = std::move(mSessions.front());

@@ -115,7 +115,7 @@ int res_nquery(res_state statp, const char* name,  // domain name
 again:
     hp->rcode = NOERROR;  // default
 
-    LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
+    LOG(VERBOSE) << __func__ << ": (" << cl << ", " << type << ")";
 
     n = res_nmkquery(QUERY, name, cl, type, /*data=*/nullptr, 0, buf, sizeof(buf),
                      statp->netcontext_flags);
@@ -125,7 +125,7 @@ again:
         !retried)
         n = res_nopt(statp, n, buf, sizeof(buf), anslen);
     if (n <= 0) {
-        LOG(DEBUG) << __func__ << ": mkquery failed";
+        LOG(VERBOSE) << __func__ << ": mkquery failed";
         *herrno = NO_RECOVERY;
         return n;
     }
@@ -137,11 +137,11 @@ again:
         if ((statp->netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
             (statp->_flags & RES_F_EDNS0ERR) && !retried) {
-            LOG(DEBUG) << __func__ << ": retry without EDNS0";
+            LOG(VERBOSE) << __func__ << ": retry without EDNS0";
             retried = true;
             goto again;
         }
-        LOG(DEBUG) << __func__ << ": send error";
+        LOG(VERBOSE) << __func__ << ": send error";
 
         // Note that rcodes SERVFAIL, NOTIMP, REFUSED may cause res_nquery() to return a general
         // error code EAI_AGAIN, but mapping the error code from rcode as res_queryN() does for
@@ -169,7 +169,7 @@ again:
     }
 
     if (hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
-        LOG(DEBUG) << __func__ << ": rcode = (" << p_rcode(hp->rcode)
+        LOG(VERBOSE) << __func__ << ": rcode = (" << p_rcode(hp->rcode)
                    << "), counts = an:" << ntohs(hp->ancount) << " ns:" << ntohs(hp->nscount)
                    << " ar:" << ntohs(hp->arcount);
 
@@ -336,7 +336,7 @@ int res_nquerydomain(res_state statp, const char* name, const char* domain, int 
     int n, d;
 
     if (domain == NULL) {
-        LOG(DEBUG) << __func__ << ": (null, " << cl << ", " << type << ")";
+        LOG(VERBOSE) << __func__ << ": (null, " << cl << ", " << type << ")";
         /*
          * Check for trailing '.';
          * copy without '.' if present.
@@ -353,7 +353,7 @@ int res_nquerydomain(res_state statp, const char* name, const char* domain, int 
         } else
             longname = name;
     } else {
-        LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
+        LOG(VERBOSE) << __func__ << ": (" << cl << ", " << type << ")";
         n = strlen(name);
         d = strlen(domain);
         if (n + d + 1 >= MAXDNAME) {

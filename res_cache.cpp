@@ -352,7 +352,7 @@ static int _dnsPacket_checkQName(DnsPacket* packet) {
          * of the loop here */
     }
     /* malformed data */
-    LOG(INFO) << __func__ << ": malformed QNAME";
+    LOG(VERBOSE) << __func__ << ": malformed QNAME";
     return 0;
 }
 
@@ -368,12 +368,12 @@ static int _dnsPacket_checkQR(DnsPacket* packet) {
         !_dnsPacket_checkBytes(packet, 2, DNS_TYPE_MX) &&
         !_dnsPacket_checkBytes(packet, 2, DNS_TYPE_AAAA) &&
         !_dnsPacket_checkBytes(packet, 2, DNS_TYPE_ALL)) {
-        LOG(INFO) << __func__ << ": unsupported TYPE";
+        LOG(VERBOSE) << __func__ << ": unsupported TYPE";
         return 0;
     }
     /* CLASS must be IN */
     if (!_dnsPacket_checkBytes(packet, 2, DNS_CLASS_IN)) {
-        LOG(INFO) << __func__ << ": unsupported CLASS";
+        LOG(VERBOSE) << __func__ << ": unsupported CLASS";
         return 0;
     }
 
@@ -388,14 +388,14 @@ static int _dnsPacket_checkQuery(DnsPacket* packet) {
     int qdCount, anCount, dnCount, arCount;
 
     if (p + DNS_HEADER_SIZE > packet->end) {
-        LOG(INFO) << __func__ << ": query packet too small";
+        LOG(VERBOSE) << __func__ << ": query packet too small";
         return 0;
     }
 
     /* QR must be set to 0, opcode must be 0 and AA must be 0 */
     /* RA, Z, and RCODE must be 0 */
     if ((p[2] & 0xFC) != 0 || (p[3] & 0xCF) != 0) {
-        LOG(INFO) << __func__ << ": query packet flags unsupported";
+        LOG(VERBOSE) << __func__ << ": query packet flags unsupported";
         return 0;
     }
 
@@ -423,12 +423,12 @@ static int _dnsPacket_checkQuery(DnsPacket* packet) {
     arCount = (p[10] << 8) | p[11];
 
     if (anCount != 0 || dnCount != 0 || arCount > 1) {
-        LOG(INFO) << __func__ << ": query packet contains non-query records";
+        LOG(VERBOSE) << __func__ << ": query packet contains non-query records";
         return 0;
     }
 
     if (qdCount == 0) {
-        LOG(INFO) << __func__ << ": query packet doesn't contain query record";
+        LOG(VERBOSE) << __func__ << ": query packet doesn't contain query record";
         return 0;
     }
 
@@ -469,7 +469,7 @@ static unsigned _dnsPacket_hashQName(DnsPacket* packet, unsigned hash) {
 
     for (;;) {
         if (p >= end) { /* should not happen */
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: read-overflow";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: read-overflow";
             break;
         }
 
@@ -478,11 +478,11 @@ static unsigned _dnsPacket_hashQName(DnsPacket* packet, unsigned hash) {
         if (c == 0) break;
 
         if (c >= 64) {
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: malformed domain";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: malformed domain";
             break;
         }
         if (p + c >= end) {
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
             break;
         }
 
@@ -567,7 +567,7 @@ static int _dnsPacket_isEqualDomainName(DnsPacket* pack1, DnsPacket* pack2) {
 
     for (;;) {
         if (p1 >= end1 || p2 >= end2) {
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: read-overflow";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: read-overflow";
             break;
         }
         int c1 = *p1++;
@@ -580,11 +580,11 @@ static int _dnsPacket_isEqualDomainName(DnsPacket* pack1, DnsPacket* pack2) {
             return 1;
         }
         if (c1 >= 64) {
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: malformed domain";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: malformed domain";
             break;
         }
         if ((p1 + c1 > end1) || (p2 + c1 > end2)) {
-            LOG(INFO) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
+            LOG(VERBOSE) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
             break;
         }
         if (res_memcasecmp(p1, p2, c1) != 0) break;
@@ -593,7 +593,7 @@ static int _dnsPacket_isEqualDomainName(DnsPacket* pack1, DnsPacket* pack2) {
         /* we rely on the bound checks at the start of the loop */
     }
     /* not the same, or one is malformed */
-    LOG(INFO) << __func__ << ": different DN";
+    LOG(VERBOSE) << __func__ << ": different DN";
     return 0;
 }
 
@@ -641,12 +641,12 @@ static int _dnsPacket_isEqualQuery(DnsPacket* pack1, DnsPacket* pack2) {
 
     /* compare RD, ignore TC, see comment in _dnsPacket_checkQuery */
     if ((pack1->base[2] & 1) != (pack2->base[2] & 1)) {
-        LOG(INFO) << __func__ << ": different RD";
+        LOG(VERBOSE) << __func__ << ": different RD";
         return 0;
     }
 
     if (pack1->base[3] != pack2->base[3]) {
-        LOG(INFO) << __func__ << ": different CD or AD";
+        LOG(VERBOSE) << __func__ << ": different CD or AD";
         return 0;
     }
 
@@ -658,7 +658,7 @@ static int _dnsPacket_isEqualQuery(DnsPacket* pack1, DnsPacket* pack2) {
     count1 = _dnsPacket_readInt16(pack1);
     count2 = _dnsPacket_readInt16(pack2);
     if (count1 != count2 || count1 < 0) {
-        LOG(INFO) << __func__ << ": different QDCOUNT";
+        LOG(VERBOSE) << __func__ << ": different QDCOUNT";
         return 0;
     }
 
@@ -670,14 +670,14 @@ static int _dnsPacket_isEqualQuery(DnsPacket* pack1, DnsPacket* pack2) {
     arcount1 = _dnsPacket_readInt16(pack1);
     arcount2 = _dnsPacket_readInt16(pack2);
     if (arcount1 != arcount2 || arcount1 < 0) {
-        LOG(INFO) << __func__ << ": different ARCOUNT";
+        LOG(VERBOSE) << __func__ << ": different ARCOUNT";
         return 0;
     }
 
     /* compare the QDCOUNT QRs */
     for (; count1 > 0; count1--) {
         if (!_dnsPacket_isEqualQR(pack1, pack2)) {
-            LOG(INFO) << __func__ << ": different QR";
+            LOG(VERBOSE) << __func__ << ": different QR";
             return 0;
         }
     }
@@ -685,7 +685,7 @@ static int _dnsPacket_isEqualQuery(DnsPacket* pack1, DnsPacket* pack2) {
     /* compare the ARCOUNT RRs */
     for (; arcount1 > 0; arcount1--) {
         if (!_dnsPacket_isEqualRR(pack1, pack2)) {
-            LOG(INFO) << __func__ << ": different additional RR";
+            LOG(VERBOSE) << __func__ << ": different additional RR";
             return 0;
         }
     }
@@ -792,15 +792,15 @@ static uint32_t answer_getTTL(const void* answer, int answerlen) {
                         result = ttl;
                     }
                 } else {
-                    PLOG(INFO) << __func__ << ": ns_parserr failed ancount no = " << n;
+                    PLOG(VERBOSE) << __func__ << ": ns_parserr failed ancount no = " << n;
                 }
             }
         }
     } else {
-        PLOG(INFO) << __func__ << ": ns_initparse failed";
+        PLOG(VERBOSE) << __func__ << ": ns_initparse failed";
     }
 
-    LOG(INFO) << __func__ << ": TTL = " << result;
+    LOG(VERBOSE) << __func__ << ": TTL = " << result;
     return result;
 }
 
@@ -969,7 +969,7 @@ struct Cache {
         num_entries = 0;
         last_id = 0;
 
-        LOG(INFO) << "DNS cache flushed";
+        LOG(VERBOSE) << "DNS cache flushed";
     }
 
     void flushPendingRequests() {
@@ -1120,7 +1120,7 @@ static void cache_dump_mru_locked(Cache* cache) {
         StringAppendF(&buf, " %d", e->id);
     }
 
-    LOG(INFO) << __func__ << ": " << buf;
+    LOG(VERBOSE) << __func__ << ": " << buf;
 }
 
 /* This function tries to find a key within the hash table
@@ -1164,7 +1164,7 @@ static void _cache_add_p(Cache* cache, Entry** lookup, Entry* e) {
     entry_mru_add(e, &cache->mru_list);
     cache->num_entries += 1;
 
-    LOG(INFO) << __func__ << ": entry " << e->id << " added (count=" << cache->num_entries << ")";
+    LOG(VERBOSE) << __func__ << ": entry " << e->id << " added (count=" << cache->num_entries << ")";
 }
 
 /* Remove an existing entry from the hash table,
@@ -1174,7 +1174,7 @@ static void _cache_add_p(Cache* cache, Entry** lookup, Entry* e) {
 static void _cache_remove_p(Cache* cache, Entry** lookup) {
     Entry* e = *lookup;
 
-    LOG(INFO) << __func__ << ": entry " << e->id << " removed (count=" << cache->num_entries - 1
+    LOG(VERBOSE) << __func__ << ": entry " << e->id << " removed (count=" << cache->num_entries - 1
               << ")";
 
     entry_mru_remove(e);
@@ -1190,10 +1190,10 @@ static void _cache_remove_oldest(Cache* cache) {
     Entry** lookup = _cache_lookup_p(cache, oldest);
 
     if (*lookup == NULL) { /* should not happen */
-        LOG(INFO) << __func__ << ": OLDEST NOT IN HTABLE ?";
+        LOG(VERBOSE) << __func__ << ": OLDEST NOT IN HTABLE ?";
         return;
     }
-    LOG(INFO) << __func__ << ": Cache full - removing oldest";
+    LOG(VERBOSE) << __func__ << ": Cache full - removing oldest";
     res_pquery(oldest->query, oldest->querylen);
     _cache_remove_p(cache, lookup);
 }
@@ -1209,7 +1209,7 @@ static void _cache_remove_expired(Cache* cache) {
         if (now >= e->expires) {
             Entry** lookup = _cache_lookup_p(cache, e);
             if (*lookup == NULL) { /* should not happen */
-                LOG(INFO) << __func__ << ": ENTRY NOT IN HTABLE ?";
+                LOG(VERBOSE) << __func__ << ": ENTRY NOT IN HTABLE ?";
                 return;
             }
             e = e->mru_next;
@@ -1239,11 +1239,11 @@ ResolvCacheStatus resolv_cache_lookup(unsigned netid, const void* query, int que
     Entry* e;
     time_t now;
 
-    LOG(INFO) << __func__ << ": lookup";
+    LOG(VERBOSE) << __func__ << ": lookup";
 
     /* we don't cache malformed queries */
     if (!entry_init_key(&key, query, querylen)) {
-        LOG(INFO) << __func__ << ": unsupported query";
+        LOG(VERBOSE) << __func__ << ": unsupported query";
         return RESOLV_CACHE_UNSUPPORTED;
     }
     /* lookup cache */
@@ -1261,13 +1261,13 @@ ResolvCacheStatus resolv_cache_lookup(unsigned netid, const void* query, int que
     e = *lookup;
 
     if (e == NULL) {
-        LOG(INFO) << __func__ << ": NOT IN CACHE";
+        LOG(VERBOSE) << __func__ << ": NOT IN CACHE";
 
         if (!cache_has_pending_request_locked(cache, &key, true)) {
             return RESOLV_CACHE_NOTFOUND;
 
         } else {
-            LOG(INFO) << __func__ << ": Waiting for previous request";
+            LOG(VERBOSE) << __func__ << ": Waiting for previous request";
             // wait until (1) timeout OR
             //            (2) cv is notified AND no pending request matching the |key|
             // (cv notifier should delete pending request before sending notification.)
@@ -1298,7 +1298,7 @@ ResolvCacheStatus resolv_cache_lookup(unsigned netid, const void* query, int que
 
     /* remove stale entries here */
     if (now >= e->expires) {
-        LOG(INFO) << __func__ << ": NOT IN CACHE (STALE ENTRY " << *lookup << "DISCARDED)";
+        LOG(VERBOSE) << __func__ << ": NOT IN CACHE (STALE ENTRY " << *lookup << "DISCARDED)";
         res_pquery(e->query, e->querylen);
         _cache_remove_p(cache, lookup);
         return RESOLV_CACHE_NOTFOUND;
@@ -1307,7 +1307,7 @@ ResolvCacheStatus resolv_cache_lookup(unsigned netid, const void* query, int que
     *answerlen = e->answerlen;
     if (e->answerlen > answersize) {
         /* NOTE: we return UNSUPPORTED if the answer buffer is too short */
-        LOG(INFO) << __func__ << ": ANSWER TOO LONG";
+        LOG(VERBOSE) << __func__ << ": ANSWER TOO LONG";
         return RESOLV_CACHE_UNSUPPORTED;
     }
 
@@ -1319,7 +1319,7 @@ ResolvCacheStatus resolv_cache_lookup(unsigned netid, const void* query, int que
         entry_mru_add(e, &cache->mru_list);
     }
 
-    LOG(INFO) << __func__ << ": FOUND IN CACHE entry=" << e;
+    LOG(VERBOSE) << __func__ << ": FOUND IN CACHE entry=" << e;
     return RESOLV_CACHE_FOUND;
 }
 
@@ -1334,7 +1334,7 @@ int resolv_cache_add(unsigned netid, const void* query, int querylen, const void
     /* don't assume that the query has already been cached
      */
     if (!entry_init_key(key, query, querylen)) {
-        LOG(INFO) << __func__ << ": passed invalid query?";
+        LOG(VERBOSE) << __func__ << ": passed invalid query?";
         return -EINVAL;
     }
 
@@ -1350,7 +1350,7 @@ int resolv_cache_add(unsigned netid, const void* query, int querylen, const void
 
     // Should only happen on ANDROID_RESOLV_NO_CACHE_LOOKUP
     if (e != NULL) {
-        LOG(INFO) << __func__ << ": ALREADY IN CACHE (" << e << ") ? IGNORING ADD";
+        LOG(VERBOSE) << __func__ << ": ALREADY IN CACHE (" << e << ") ? IGNORING ADD";
         cache_notify_waiting_tid_locked(cache, key);
         return -EEXIST;
     }
@@ -1364,7 +1364,7 @@ int resolv_cache_add(unsigned netid, const void* query, int querylen, const void
         lookup = _cache_lookup_p(cache, key);
         e = *lookup;
         if (e != NULL) {
-            LOG(INFO) << __func__ << ": ALREADY IN CACHE (" << e << ") ? IGNORING ADD";
+            LOG(VERBOSE) << __func__ << ": ALREADY IN CACHE (" << e << ") ? IGNORING ADD";
             cache_notify_waiting_tid_locked(cache, key);
             return -EEXIST;
         }
@@ -1622,7 +1622,7 @@ int resolv_set_nameservers(unsigned netid, const std::vector<std::string>& serve
     std::vector<std::string> nameservers = filter_nameservers(servers);
     const int numservers = static_cast<int>(nameservers.size());
 
-    LOG(INFO) << __func__ << ": netId = " << netid << ", numservers = " << numservers;
+    LOG(VERBOSE) << __func__ << ": netId = " << netid << ", numservers = " << numservers;
 
     // Parse the addresses before actually locking or changing any state, in case there is an error.
     // As a side effect this also reduces the time the lock is kept.
@@ -1646,7 +1646,7 @@ int resolv_set_nameservers(unsigned netid, const std::vector<std::string>& serve
         free_nameservers_locked(netconfig);
         netconfig->nameservers = std::move(nameservers);
         for (int i = 0; i < numservers; i++) {
-            LOG(INFO) << __func__ << ": netid = " << netid
+            LOG(VERBOSE) << __func__ << ": netid = " << netid
                       << ", addr = " << netconfig->nameservers[i];
         }
         netconfig->nameserverSockAddrs = std::move(ipSockAddrs);
@@ -1710,7 +1710,7 @@ void resolv_populate_res_for_net(ResState* statp) {
     if (statp == nullptr) {
         return;
     }
-    LOG(INFO) << __func__ << ": netid=" << statp->netid;
+    LOG(VERBOSE) << __func__ << ": netid=" << statp->netid;
 
     std::lock_guard guard(cache_mutex);
     NetConfig* info = find_netconfig_locked(statp->netid);
@@ -1731,7 +1731,7 @@ static void res_cache_add_stats_sample_locked(res_stats* stats, const res_sample
                                               int max_samples) {
     // Note: This function expects max_samples > 0, otherwise a (harmless) modification of the
     // allocated but supposedly unused memory for samples[0] will happen
-    LOG(INFO) << __func__ << ": adding sample to stats, next = " << unsigned(stats->sample_next)
+    LOG(VERBOSE) << __func__ << ": adding sample to stats, next = " << unsigned(stats->sample_next)
               << ", count = " << unsigned(stats->sample_count);
     stats->samples[stats->sample_next] = sample;
     if (stats->sample_count < max_samples) {
@@ -1766,7 +1766,7 @@ int android_net_res_stats_get_info_for_net(unsigned netid, int* nscount,
 
     const int num = info->nameserverCount();
     if (num > MAXNS) {
-        LOG(INFO) << __func__ << ": nscount " << num << " > MAXNS " << MAXNS;
+        LOG(VERBOSE) << __func__ << ": nscount " << num << " > MAXNS " << MAXNS;
         errno = EFAULT;
         return -1;
     }

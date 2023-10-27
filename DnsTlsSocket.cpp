@@ -71,7 +71,7 @@ int waitForWriting(int fd, int timeoutMs = -1) {
 }  // namespace
 
 Status DnsTlsSocket::tcpConnect() {
-    LOG(DEBUG) << mMark << " connecting TCP socket";
+    LOG(VERBOSE) << mMark << " connecting TCP socket";
     int type = SOCK_NONBLOCK | SOCK_CLOEXEC;
     switch (mServer.protocol) {
         case IPPROTO_TCP:
@@ -181,7 +181,7 @@ bool DnsTlsSocket::initialize() {
     if (mConnectTimeoutMs < 1000) mConnectTimeoutMs = 1000;
 
     mAsyncHandshake = instance->getFlag("dot_async_handshake", 0);
-    LOG(DEBUG) << "DnsTlsSocket is initialized with { mConnectTimeoutMs: " << mConnectTimeoutMs
+    LOG(VERBOSE) << "DnsTlsSocket is initialized with { mConnectTimeoutMs: " << mConnectTimeoutMs
                << ", mAsyncHandshake: " << mAsyncHandshake << " }";
 
     transitionState(State::UNINITIALIZED, State::INITIALIZED);
@@ -253,10 +253,10 @@ bssl::UniquePtr<SSL> DnsTlsSocket::prepareForSslConnect(int fd) {
 
     bssl::UniquePtr<SSL_SESSION> session = mCache->getSession();
     if (session) {
-        LOG(DEBUG) << "Setting session";
+        LOG(VERBOSE) << "Setting session";
         SSL_set_session(ssl.get(), session.get());
     } else {
-        LOG(DEBUG) << "No session available";
+        LOG(VERBOSE) << "No session available";
     }
 
     return ssl;
@@ -269,9 +269,9 @@ bssl::UniquePtr<SSL> DnsTlsSocket::sslConnect(int fd) {
     }
 
     for (;;) {
-        LOG(DEBUG) << " Calling SSL_connect with mark 0x" << std::hex << mMark;
+        LOG(VERBOSE) << " Calling SSL_connect with mark 0x" << std::hex << mMark;
         int ret = SSL_connect(ssl.get());
-        LOG(DEBUG) << " SSL_connect returned " << ret << " with mark 0x" << std::hex << mMark;
+        LOG(VERBOSE) << " SSL_connect returned " << ret << " with mark 0x" << std::hex << mMark;
         if (ret == 1) break;  // SSL handshake complete;
 
         const int ssl_err = SSL_get_error(ssl.get(), ret);
@@ -302,7 +302,7 @@ bssl::UniquePtr<SSL> DnsTlsSocket::sslConnect(int fd) {
         }
     }
 
-    LOG(DEBUG) << mMark << " handshake complete";
+    LOG(VERBOSE) << mMark << " handshake complete";
 
     return ssl;
 }
@@ -314,9 +314,9 @@ bssl::UniquePtr<SSL> DnsTlsSocket::sslConnectV2(int fd) {
     }
 
     for (;;) {
-        LOG(DEBUG) << " Calling SSL_connect with mark 0x" << std::hex << mMark;
+        LOG(VERBOSE) << " Calling SSL_connect with mark 0x" << std::hex << mMark;
         int ret = SSL_connect(ssl.get());
-        LOG(DEBUG) << " SSL_connect returned " << ret << " with mark 0x" << std::hex << mMark;
+        LOG(VERBOSE) << " SSL_connect returned " << ret << " with mark 0x" << std::hex << mMark;
         if (ret == 1) break;  // SSL handshake complete;
 
         enum { SSLFD = 0, EVENTFD = 1 };
@@ -355,7 +355,7 @@ bssl::UniquePtr<SSL> DnsTlsSocket::sslConnectV2(int fd) {
         }
     }
 
-    LOG(DEBUG) << mMark << " handshake complete";
+    LOG(VERBOSE) << mMark << " handshake complete";
 
     return ssl;
 }
@@ -369,7 +369,7 @@ void DnsTlsSocket::sslDisconnect() {
 }
 
 bool DnsTlsSocket::sslWrite(const Slice buffer) {
-    LOG(DEBUG) << mMark << " Writing " << buffer.size() << " bytes";
+    LOG(VERBOSE) << mMark << " Writing " << buffer.size() << " bytes";
     for (;;) {
         int ret = SSL_write(mSsl.get(), buffer.base(), buffer.size());
         if (ret == int(buffer.size())) break;  // SSL write complete;
@@ -386,12 +386,12 @@ bool DnsTlsSocket::sslWrite(const Slice buffer) {
                 case 0:
                     break;  // SSL write complete;
                 default:
-                    LOG(DEBUG) << "SSL_write error " << ssl_err;
+                    LOG(VERBOSE) << "SSL_write error " << ssl_err;
                     return false;
             }
         }
     }
-    LOG(DEBUG) << mMark << " Wrote " << buffer.size() << " bytes";
+    LOG(VERBOSE) << mMark << " Wrote " << buffer.size() << " bytes";
     return true;
 }
 
@@ -415,7 +415,7 @@ void DnsTlsSocket::loop() {
             transitionState(State::CONNECTING, State::WAIT_FOR_DELETE);
             return;
         }
-        LOG(DEBUG) << "Handshaking succeeded";
+        LOG(VERBOSE) << "Handshaking succeeded";
     }
 
     transitionState(State::CONNECTING, State::CONNECTED);
@@ -442,11 +442,11 @@ void DnsTlsSocket::loop() {
 
         const int s = TEMP_FAILURE_RETRY(poll(fds, std::size(fds), timeout_msecs));
         if (s == 0) {
-            LOG(DEBUG) << "Idle timeout";
+            LOG(VERBOSE) << "Idle timeout";
             break;
         }
         if (s < 0) {
-            PLOG(DEBUG) << "Poll failed";
+            PLOG(VERBOSE) << "Poll failed";
             break;
         }
         if (fds[SSLFD].revents & (POLLIN | POLLERR | POLLHUP)) {
@@ -458,7 +458,7 @@ void DnsTlsSocket::loop() {
             // refactoring it to not get blocked in any case.
             do {
                 if (!readResponse()) {
-                    LOG(DEBUG) << "SSL remote close or read error.";
+                    LOG(VERBOSE) << "SSL remote close or read error.";
                     readFailed = true;
                 }
             } while (SSL_pending(mSsl.get()) > 0 && !readFailed);
@@ -480,7 +480,7 @@ void DnsTlsSocket::loop() {
                 LOG(ERROR) << "Int size mismatch: " << res << " != " << sizeof(num_queries);
                 break;
             } else if (num_queries < 0) {
-                LOG(DEBUG) << "Negative eventfd read indicates destructor-initiated shutdown";
+                LOG(VERBOSE) << "Negative eventfd read indicates destructor-initiated shutdown";
                 break;
             }
             // Take ownership of all pending queries.  (q is always empty here.)
@@ -497,16 +497,16 @@ void DnsTlsSocket::loop() {
             q.pop_front();
         }
     }
-    LOG(DEBUG) << "Disconnecting";
+    LOG(VERBOSE) << "Disconnecting";
     sslDisconnect();
-    LOG(DEBUG) << "Calling onClosed";
+    LOG(VERBOSE) << "Calling onClosed";
     mObserver->onClosed();
     transitionState(State::CONNECTED, State::WAIT_FOR_DELETE);
-    LOG(DEBUG) << "Ending loop";
+    LOG(VERBOSE) << "Ending loop";
 }
 
 DnsTlsSocket::~DnsTlsSocket() {
-    LOG(DEBUG) << "Destructor";
+    LOG(VERBOSE) << "Destructor";
     // This will trigger an orderly shutdown in loop().
     requestLoopShutdown();
     {
@@ -518,11 +518,11 @@ DnsTlsSocket::~DnsTlsSocket() {
         }
     }
     if (mLoopThread) {
-        LOG(DEBUG) << "Waiting for loop thread to terminate";
+        LOG(VERBOSE) << "Waiting for loop thread to terminate";
         mLoopThread->join();
         mLoopThread.reset();
     }
-    LOG(DEBUG) << "Destructor completed";
+    LOG(VERBOSE) << "Destructor completed";
 }
 
 bool DnsTlsSocket::query(uint16_t id, const Slice query) {
@@ -599,7 +599,7 @@ int DnsTlsSocket::sslRead(const Slice buffer, bool wait) {
                 }
                 continue;
             } else {
-                LOG(DEBUG) << "SSL_read error " << ssl_err;
+                LOG(VERBOSE) << "SSL_read error " << ssl_err;
                 return ssl_err;
             }
         }
@@ -614,16 +614,16 @@ bool DnsTlsSocket::sendQuery(const std::vector<uint8_t>& buf) {
     if (!sslWrite(netdutils::makeSlice(buf))) {
         return false;
     }
-    LOG(DEBUG) << mMark << " SSL_write complete";
+    LOG(VERBOSE) << mMark << " SSL_write complete";
     return true;
 }
 
 bool DnsTlsSocket::readResponse() {
-    LOG(DEBUG) << "reading response";
+    LOG(VERBOSE) << "reading response";
     uint8_t responseHeader[2];
     int err = sslRead(Slice(responseHeader, 2), false);
     if (err == SSL_ERROR_WANT_READ) {
-        LOG(DEBUG) << "Ignoring spurious wakeup from server";
+        LOG(VERBOSE) << "Ignoring spurious wakeup from server";
         return true;
     }
     if (err != SSL_ERROR_NONE) {
@@ -633,10 +633,10 @@ bool DnsTlsSocket::readResponse() {
     // always invalid when truncated, so the response will be treated as an error.
     constexpr uint16_t MAX_SIZE = 8192;
     const uint16_t responseSize = (responseHeader[0] << 8) | responseHeader[1];
-    LOG(DEBUG) << mMark << " Expecting response of size " << responseSize;
+    LOG(VERBOSE) << mMark << " Expecting response of size " << responseSize;
     std::vector<uint8_t> response(std::min(responseSize, MAX_SIZE));
     if (sslRead(netdutils::makeSlice(response), true) != SSL_ERROR_NONE) {
-        LOG(DEBUG) << mMark << " Failed to read " << response.size() << " bytes";
+        LOG(VERBOSE) << mMark << " Failed to read " << response.size() << " bytes";
         return false;
     }
     uint16_t remainingBytes = responseSize - response.size();
@@ -644,12 +644,12 @@ bool DnsTlsSocket::readResponse() {
         constexpr uint16_t CHUNK_SIZE = 2048;
         std::vector<uint8_t> discard(std::min(remainingBytes, CHUNK_SIZE));
         if (sslRead(netdutils::makeSlice(discard), true) != SSL_ERROR_NONE) {
-            LOG(DEBUG) << mMark << " Failed to discard " << discard.size() << " bytes";
+            LOG(VERBOSE) << mMark << " Failed to discard " << discard.size() << " bytes";
             return false;
         }
         remainingBytes -= discard.size();
     }
-    LOG(DEBUG) << mMark << " SSL_read complete";
+    LOG(VERBOSE) << mMark << " SSL_read complete";
 
     mObserver->onResponse(std::move(response));
     return true;

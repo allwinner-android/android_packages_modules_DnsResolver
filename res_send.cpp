@@ -419,7 +419,7 @@ static bool isNetworkRestricted(int terrno) {
 
 int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int anssiz, int* rcode,
               uint32_t flags, std::chrono::milliseconds sleepTimeMs) {
-    LOG(DEBUG) << __func__;
+    LOG(VERBOSE) << __func__;
 
     // Should not happen
     if (anssiz < HFIXEDSZ) {
@@ -469,7 +469,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
         int resplen = res_tls_send(statp, Slice(const_cast<uint8_t*>(buf), buflen),
                                    Slice(ans, anssiz), rcode, &fallback);
         if (resplen > 0) {
-            LOG(DEBUG) << __func__ << ": got answer from DoT";
+            LOG(VERBOSE) << __func__ << ": got answer from DoT";
             res_pquery(ans, resplen);
             if (cache_status == RESOLV_CACHE_NOTFOUND) {
                 resolv_cache_add(statp->netid, buf, buflen, ans, resplen);
@@ -526,7 +526,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
 
             // Get server addr
             const IPSockAddr& serverSockAddr = statp->nsaddrs[ns];
-            LOG(DEBUG) << __func__ << ": Querying server (# " << ns + 1
+            LOG(VERBOSE) << __func__ << ": Querying server (# " << ns + 1
                        << ") address = " << serverSockAddr.toString();
 
             ::android::net::Protocol query_proto = useTcp ? PROTO_TCP : PROTO_UDP;
@@ -552,14 +552,14 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                     // TCP fallback retry and current server does not support TCP connectin
                     useTcp = false;
                 }
-                LOG(INFO) << __func__ << ": used send_vc " << resplen << " terrno: " << terrno;
+                LOG(VERBOSE) << __func__ << ": used send_vc " << resplen << " terrno: " << terrno;
             } else {
                 // UDP
                 resplen = send_dg(statp, &params, buf, buflen, ans, anssiz, &terrno, &actualNs,
                                   &useTcp, &gotsomewhere, &query_time, rcode, &delay);
                 fallbackTCP = useTcp ? true : false;
                 retry_count_for_event = attempt;
-                LOG(INFO) << __func__ << ": used send_dg " << resplen << " terrno: " << terrno;
+                LOG(VERBOSE) << __func__ << ": used send_dg " << resplen << " terrno: " << terrno;
             }
 
             const IPSockAddr& receivedServerAddr = statp->nsaddrs[actualNs];
@@ -610,7 +610,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                 return -terrno;
             };
 
-            LOG(DEBUG) << __func__ << ": got answer:";
+            LOG(VERBOSE) << __func__ << ": got answer:";
             res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
 
             if (cache_status == RESOLV_CACHE_NOTFOUND) {
@@ -644,7 +644,7 @@ static struct timespec get_timeout(res_state statp, const res_params* params, co
     if (msec < 1000) {
         msec = 1000;  // Use at least 1000ms
     }
-    LOG(INFO) << __func__ << ": using timeout of " << msec << " msec";
+    LOG(VERBOSE) << __func__ << ": using timeout of " << msec << " msec";
 
     struct timespec result;
     result.tv_sec = msec / 1000;
@@ -664,7 +664,7 @@ static int send_vc(res_state statp, res_params* params, const uint8_t* buf, int 
     int truncating, connreset, n;
     uint8_t* cp;
 
-    LOG(INFO) << __func__ << ": using send_vc";
+    LOG(VERBOSE) << __func__ << ": using send_vc";
 
     // It should never happen, but just in case.
     if (ns >= statp->nsaddrs.size()) {
@@ -703,7 +703,7 @@ same_ns:
         statp->tcp_nssock.reset(socket(nsap->sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0));
         if (statp->tcp_nssock < 0) {
             *terrno = errno;
-            PLOG(DEBUG) << __func__ << ": socket(vc): ";
+            PLOG(VERBOSE) << __func__ << ": socket(vc): ";
             switch (errno) {
                 case EPROTONOSUPPORT:
                 case EPFNOSUPPORT:
@@ -719,7 +719,7 @@ same_ns:
             if (setsockopt(statp->tcp_nssock, SOL_SOCKET, SO_MARK, &statp->_mark,
                            sizeof(statp->_mark)) < 0) {
                 *terrno = errno;
-                PLOG(DEBUG) << __func__ << ": setsockopt: ";
+                PLOG(VERBOSE) << __func__ << ": setsockopt: ";
                 return -1;
             }
         }
@@ -759,7 +759,7 @@ same_ns:
     };
     if (writev(statp->tcp_nssock, iov, 2) != (INT16SZ + buflen)) {
         *terrno = errno;
-        PLOG(DEBUG) << __func__ << ": write failed: ";
+        PLOG(VERBOSE) << __func__ << ": write failed: ";
         statp->closeSockets();
         return (0);
     }
@@ -775,7 +775,7 @@ read_len:
     }
     if (n <= 0) {
         *terrno = errno;
-        PLOG(DEBUG) << __func__ << ": read failed: ";
+        PLOG(VERBOSE) << __func__ << ": read failed: ";
         statp->closeSockets();
         /*
          * A long running process might get its TCP
@@ -794,7 +794,7 @@ read_len:
     }
     uint16_t resplen = ntohs(*reinterpret_cast<const uint16_t*>(ans));
     if (resplen > anssiz) {
-        LOG(DEBUG) << __func__ << ": response truncated";
+        LOG(VERBOSE) << __func__ << ": response truncated";
         truncating = 1;
         len = anssiz;
     } else
@@ -803,7 +803,7 @@ read_len:
         /*
          * Undersized message.
          */
-        LOG(DEBUG) << __func__ << ": undersized: " << len;
+        LOG(VERBOSE) << __func__ << ": undersized: " << len;
         *terrno = EMSGSIZE;
         statp->closeSockets();
         return (0);
@@ -815,7 +815,7 @@ read_len:
     }
     if (n <= 0) {
         *terrno = errno;
-        PLOG(DEBUG) << __func__ << ": read(vc): ";
+        PLOG(VERBOSE) << __func__ << ": read(vc): ";
         statp->closeSockets();
         return (0);
     }
@@ -847,7 +847,7 @@ read_len:
      * wait for the correct one.
      */
     if (hp->id != anhp->id) {
-        LOG(DEBUG) << __func__ << ": ld answer (unexpected):";
+        LOG(VERBOSE) << __func__ << ": ld answer (unexpected):";
         res_pquery(ans, resplen);
         goto read_len;
     }
@@ -881,7 +881,7 @@ static int connect_with_timeout(int sock, const sockaddr* nsap, socklen_t salen,
     if (res != 0) {
         timespec now = evNowTime();
         timespec finish = evAddTime(now, timeout);
-        LOG(INFO) << __func__ << ": " << sock << " send_vc";
+        LOG(VERBOSE) << __func__ << ": " << sock << " send_vc";
         res = retrying_poll(sock, POLLIN | POLLOUT, &finish);
         if (res <= 0) {
             res = -1;
@@ -889,7 +889,7 @@ static int connect_with_timeout(int sock, const sockaddr* nsap, socklen_t salen,
     }
 done:
     fcntl(sock, F_SETFL, origflags);
-    LOG(INFO) << __func__ << ": " << sock << " connect_with_const timeout returning " << res;
+    LOG(VERBOSE) << __func__ << ": " << sock << " connect_with_const timeout returning " << res;
     return res;
 }
 
@@ -897,7 +897,7 @@ static int retrying_poll(const int sock, const short events, const struct timesp
     struct timespec now, timeout;
 
 retry:
-    LOG(INFO) << __func__ << ": " << sock << " retrying_poll";
+    LOG(VERBOSE) << __func__ << ": " << sock << " retrying_poll";
 
     now = evNowTime();
     if (evCmpTime(*finish, now) > 0)
@@ -907,13 +907,13 @@ retry:
     struct pollfd fds = {.fd = sock, .events = events};
     int n = ppoll(&fds, 1, &timeout, /*__mask=*/NULL);
     if (n == 0) {
-        LOG(INFO) << __func__ << ": " << sock << " retrying_poll timeout";
+        LOG(VERBOSE) << __func__ << ": " << sock << " retrying_poll timeout";
         errno = ETIMEDOUT;
         return 0;
     }
     if (n < 0) {
         if (errno == EINTR) goto retry;
-        PLOG(INFO) << __func__ << ": " << sock << " retrying_poll failed";
+        PLOG(VERBOSE) << __func__ << ": " << sock << " retrying_poll failed";
         return n;
     }
     if (fds.revents & (POLLIN | POLLOUT | POLLERR)) {
@@ -921,11 +921,11 @@ retry:
         socklen_t len = sizeof(error);
         if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error) {
             errno = error;
-            PLOG(INFO) << __func__ << ": " << sock << " retrying_poll getsockopt failed";
+            PLOG(VERBOSE) << __func__ << ": " << sock << " retrying_poll getsockopt failed";
             return -1;
         }
     }
-    LOG(INFO) << __func__ << ": " << sock << " retrying_poll returning " << n;
+    LOG(VERBOSE) << __func__ << ": " << sock << " retrying_poll returning " << n;
     return n;
 }
 
@@ -939,7 +939,7 @@ static std::vector<pollfd> extractUdpFdset(res_state statp, const short events =
 
 static Result<std::vector<int>> udpRetryingPoll(res_state statp, const timespec* finish) {
     for (;;) {
-        LOG(DEBUG) << __func__ << ": poll";
+        LOG(VERBOSE) << __func__ << ": poll";
         timespec start_time = evNowTime();
         timespec timeout = (evCmpTime(*finish, start_time) > 0) ? evSubTime(*finish, start_time)
                                                                 : evConsTime(0L, 0L);
@@ -948,7 +948,7 @@ static Result<std::vector<int>> udpRetryingPoll(res_state statp, const timespec*
         if (n <= 0) {
             if (errno == EINTR && n < 0) continue;
             if (n == 0) errno = ETIMEDOUT;
-            PLOG(INFO) << __func__ << ": failed";
+            PLOG(VERBOSE) << __func__ << ": failed";
             return ErrnoError();
         }
         std::vector<int> fdsToRead;
@@ -957,7 +957,7 @@ static Result<std::vector<int>> udpRetryingPoll(res_state statp, const timespec*
                 fdsToRead.push_back(pollfd.fd);
             }
         }
-        LOG(DEBUG) << __func__ << ": "
+        LOG(VERBOSE) << __func__ << ": "
                    << " returning fd size: " << fdsToRead.size();
         return fdsToRead;
     }
@@ -981,17 +981,17 @@ bool ignoreInvalidAnswer(res_state statp, const sockaddr_storage& from, const ui
     HEADER* anhp = (HEADER*)(void*)ans;
     if (hp->id != anhp->id) {
         // response from old query, ignore it.
-        LOG(DEBUG) << __func__ << ": old answer:";
+        LOG(VERBOSE) << __func__ << ": old answer:";
         return true;
     }
     if (*receivedFromNs = res_ourserver_p(statp, (sockaddr*)(void*)&from); *receivedFromNs < 0) {
         // response from wrong server? ignore it.
-        LOG(DEBUG) << __func__ << ": not our server:";
+        LOG(VERBOSE) << __func__ << ": not our server:";
         return true;
     }
     if (!res_queriesmatch(buf, buf + buflen, ans, ans + anssiz)) {
         // response contains wrong query? ignore it.
-        LOG(DEBUG) << __func__ << ": wrong query name:";
+        LOG(VERBOSE) << __func__ << ": wrong query name:";
         return true;
     }
     return false;
@@ -1017,7 +1017,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
         statp->nssocks[*ns].reset(socket(nsap->sa_family, SOCK_DGRAM | SOCK_CLOEXEC, 0));
         if (statp->nssocks[*ns] < 0) {
             *terrno = errno;
-            PLOG(DEBUG) << __func__ << ": socket(dg): ";
+            PLOG(VERBOSE) << __func__ << ": socket(dg): ";
             switch (errno) {
                 case EPROTONOSUPPORT:
                 case EPFNOSUPPORT:
@@ -1054,11 +1054,11 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             statp->closeSockets();
             return (0);
         }
-        LOG(DEBUG) << __func__ << ": new DG socket";
+        LOG(VERBOSE) << __func__ << ": new DG socket";
     }
     if (send(statp->nssocks[*ns], (const char*)buf, (size_t)buflen, 0) != buflen) {
         *terrno = errno;
-        PLOG(DEBUG) << __func__ << ": send: ";
+        PLOG(VERBOSE) << __func__ << ": send: ";
         statp->closeSockets();
         return 0;
     }
@@ -1078,7 +1078,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             // Leave the UDP sockets open on timeout so we can keep listening for
             // a late response from this server while retrying on the next server.
             if (!isTimeout) statp->closeSockets();
-            LOG(DEBUG) << __func__ << ": " << (isTimeout) ? "timeout" : "poll";
+            LOG(VERBOSE) << __func__ << ": " << (isTimeout) ? "timeout" : "poll";
             return 0;
         }
         bool needRetry = false;
@@ -1090,13 +1090,13 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
                     recvfrom(fd, (char*)ans, (size_t)anssiz, 0, (sockaddr*)(void*)&from, &fromlen);
             if (resplen <= 0) {
                 *terrno = errno;
-                PLOG(DEBUG) << __func__ << ": recvfrom: ";
+                PLOG(VERBOSE) << __func__ << ": recvfrom: ";
                 continue;
             }
             *gotsomewhere = 1;
             if (resplen < HFIXEDSZ) {
                 // Undersized message.
-                LOG(DEBUG) << __func__ << ": undersized: " << resplen;
+                LOG(VERBOSE) << __func__ << ": undersized: " << resplen;
                 *terrno = EMSGSIZE;
                 continue;
             }
@@ -1114,7 +1114,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
                 //  Do not retry if the server do not understand EDNS0.
                 //  The case has to be captured here, as FORMERR packet do not
                 //  carry query section, hence res_queriesmatch() returns 0.
-                LOG(DEBUG) << __func__ << ": server rejected query with EDNS0:";
+                LOG(VERBOSE) << __func__ << ": server rejected query with EDNS0:";
                 res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
                 // record the error
                 statp->_flags |= RES_F_EDNS0ERR;
@@ -1125,7 +1125,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             timespec done = evNowTime();
             *delay = res_stats_calculate_rtt(&done, &start_time);
             if (anhp->rcode == SERVFAIL || anhp->rcode == NOTIMP || anhp->rcode == REFUSED) {
-                LOG(DEBUG) << __func__ << ": server rejected query:";
+                LOG(VERBOSE) << __func__ << ": server rejected query:";
                 res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
                 *rcode = anhp->rcode;
                 continue;
@@ -1133,7 +1133,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             if (anhp->tc) {
                 // To get the rest of answer,
                 // use TCP with same server.
-                LOG(DEBUG) << __func__ << ": truncated answer";
+                LOG(VERBOSE) << __func__ << ": truncated answer";
                 *terrno = E2BIG;
                 *v_circuit = 1;
                 return 1;
@@ -1156,7 +1156,7 @@ static void dump_error(const char* str, const struct sockaddr* address, int alen
     constexpr int niflags = NI_NUMERICHOST | NI_NUMERICSERV;
     const int err = errno;
 
-    if (!WOULD_LOG(DEBUG)) return;
+    if (!WOULD_LOG(VERBOSE)) return;
 
     if (getnameinfo(address, (socklen_t)alen, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), niflags)) {
         strncpy(hbuf, "?", sizeof(hbuf) - 1);
@@ -1165,7 +1165,7 @@ static void dump_error(const char* str, const struct sockaddr* address, int alen
         sbuf[sizeof(sbuf) - 1] = '\0';
     }
     errno = err;
-    PLOG(DEBUG) << __func__ << ": " << str << " ([" << hbuf << "]." << sbuf << "): ";
+    PLOG(VERBOSE) << __func__ << ": " << str << " ([" << hbuf << "]." << sbuf << "): ";
 }
 
 static int sock_eq(struct sockaddr* a, struct sockaddr* b) {
@@ -1250,12 +1250,12 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
         }
     }
 
-    LOG(INFO) << __func__ << ": performing query over TLS";
+    LOG(VERBOSE) << __func__ << ": performing query over TLS";
 
     const auto response = DnsTlsDispatcher::getInstance().query(privateDnsStatus.validatedServers(),
                                                                 statp, query, answer, &resplen);
 
-    LOG(INFO) << __func__ << ": TLS query result: " << static_cast<int>(response);
+    LOG(VERBOSE) << __func__ << ": TLS query result: " << static_cast<int>(response);
 
     if (privateDnsStatus.mode == PrivateDnsMode::OPPORTUNISTIC) {
         // In opportunistic mode, handle falling back to cleartext in some

@@ -204,7 +204,7 @@ void TunForwarder::handlePacket(int fd) const {
     // Filter the packet. Only TCP and UDP packets are allowed.
     const Slice tunPacket(buf, readlen);
     if (auto result = validatePacket(tunPacket); !result.ok()) {
-        LOG(DEBUG) << "validatePacket failed: " << result.error();
+        LOG(VERBOSE) << "validatePacket failed: " << result.error();
         return;
     }
 

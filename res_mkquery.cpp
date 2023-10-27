@@ -110,7 +110,7 @@ int res_nmkquery(int op,               // opcode of query
     int n;
     uint8_t *dnptrs[20], **dpp, **lastdnptr;
 
-    LOG(DEBUG) << __func__ << ": (" << _res_opcodes[op] << ", " << p_class(cl) << ", "
+    LOG(VERBOSE) << __func__ << ": (" << _res_opcodes[op] << ", " << p_class(cl) << ", "
                << p_type(type) << ")";
 
     /*
@@ -200,7 +200,7 @@ int res_nopt(res_state statp, int n0, /* current offset in buffer */
     uint8_t *cp, *ep;
     uint16_t flags = 0;
 
-    LOG(DEBUG) << __func__;
+    LOG(VERBOSE) << __func__;
 
     hp = (HEADER*) (void*) buf;
     cp = buf + n0;
@@ -219,7 +219,7 @@ int res_nopt(res_state statp, int n0, /* current offset in buffer */
     *cp++ = NOERROR; /* extended RCODE */
     *cp++ = 0;       /* EDNS version */
     if (statp->netcontext_flags & NET_CONTEXT_FLAG_USE_DNS_OVER_TLS) {
-        LOG(DEBUG) << __func__ << ": ENDS0 DNSSEC";
+        LOG(VERBOSE) << __func__ << ": ENDS0 DNSSEC";
         flags |= NS_OPT_DNSSEC_OK;
     }
     *reinterpret_cast<uint16_t*>(cp) = htons(flags);

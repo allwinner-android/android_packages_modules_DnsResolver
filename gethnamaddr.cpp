@@ -263,7 +263,7 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
         }
         if (type != qtype) {
             if (type != T_KEY && type != T_SIG)
-                LOG(DEBUG) << __func__ << ": asked for \"" << qname << " " << p_class(C_IN) << " "
+                LOG(VERBOSE) << __func__ << ": asked for \"" << qname << " " << p_class(C_IN) << " "
                            << p_type(qtype) << "\", got type \"" << p_type(type) << "\"";
             cp += n;
             continue; /* XXX - had_error++ ? */
@@ -271,7 +271,7 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
         switch (type) {
             case T_PTR:
                 if (strcasecmp(tname, bp) != 0) {
-                    LOG(DEBUG) << __func__ << ": asked for \"" << qname << "\", got \"" << bp
+                    LOG(VERBOSE) << __func__ << ": asked for \"" << qname << "\", got \"" << bp
                                << "\"";
                     cp += n;
                     continue; /* XXX - had_error++ ? */
@@ -299,7 +299,7 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
             case T_A:
             case T_AAAA:
                 if (strcasecmp(hent->h_name, bp) != 0) {
-                    LOG(DEBUG) << __func__ << ": asked for \"" << hent->h_name << "\", got \"" << bp
+                    LOG(VERBOSE) << __func__ << ": asked for \"" << hent->h_name << "\", got \"" << bp
                                << "\"";
                     cp += n;
                     continue; /* XXX - had_error++ ? */
@@ -327,13 +327,13 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
                 bp += sizeof(align) - (size_t)((uintptr_t)bp % sizeof(align));
 
                 if (bp + n >= ep) {
-                    LOG(DEBUG) << __func__ << ": size (" << n << ") too big";
+                    LOG(VERBOSE) << __func__ << ": size (" << n << ") too big";
                     had_error++;
                     continue;
                 }
                 if (hap >= &addr_ptrs[MAXADDRS - 1]) {
                     if (!toobig++) {
-                        LOG(DEBUG) << __func__ << ": Too many addresses (" << MAXADDRS << ")";
+                        LOG(VERBOSE) << __func__ << ": Too many addresses (" << MAXADDRS << ")";
                     }
                     cp += n;
                     continue;
@@ -671,7 +671,7 @@ static int dns_gethtbyname(ResState* res, const char* name, int addr_type, getna
     int he;
     n = res_nsearch(res, name, C_IN, type, buf->buf, (int)sizeof(buf->buf), &he);
     if (n < 0) {
-        LOG(DEBUG) << __func__ << ": res_nsearch failed (" << n << ")";
+        LOG(VERBOSE) << __func__ << ": res_nsearch failed (" << n << ")";
         // Return h_errno (he) to catch more detailed errors rather than EAI_NODATA.
         // Note that res_nsearch() doesn't set the pair NETDB_INTERNAL and errno.
         // See also herrnoToAiErrno().
@@ -733,7 +733,7 @@ static int dns_gethtbyaddr(const unsigned char* uaddr, int len, int af,
     int he;
     n = res_nquery(&res, qbuf, C_IN, T_PTR, buf->buf, (int)sizeof(buf->buf), &he);
     if (n < 0) {
-        LOG(DEBUG) << __func__ << ": res_nquery failed (" << n << ")";
+        LOG(VERBOSE) << __func__ << ": res_nquery failed (" << n << ")";
         // Note that res_nquery() doesn't set the pair NETDB_INTERNAL and errno.
         // Return h_errno (he) to catch more detailed errors rather than EAI_NODATA.
         // See also herrnoToAiErrno().

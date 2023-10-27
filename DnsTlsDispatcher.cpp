@@ -72,7 +72,7 @@ std::list<DnsTlsServer> DnsTlsDispatcher::getOrderedAndUsableServerList(
                 if (!xport->usable()) {
                     // Don't use this xport. It will be removed after timeout
                     // (IDLE_TIMEOUT minutes).
-                    LOG(DEBUG) << "Skip using DoT server " << tlsServer.toIpString() << " on "
+                    LOG(VERBOSE) << "Skip using DoT server " << tlsServer.toIpString() << " on "
                                << netId;
                     continue;
                 }
@@ -188,15 +188,15 @@ DnsTlsTransport::Response DnsTlsDispatcher::query(const DnsTlsServer& server, un
     DnsTlsTransport::Response code = result.code;
     if (code == DnsTlsTransport::Response::success) {
         if (result.response.size() > ans.size()) {
-            LOG(DEBUG) << "Response too large: " << result.response.size() << " > " << ans.size();
+            LOG(VERBOSE) << "Response too large: " << result.response.size() << " > " << ans.size();
             code = DnsTlsTransport::Response::limit_error;
         } else {
-            LOG(DEBUG) << "Got response successfully";
+            LOG(VERBOSE) << "Got response successfully";
             *resplen = result.response.size();
             netdutils::copy(ans, netdutils::makeSlice(result.response));
         }
     } else {
-        LOG(DEBUG) << "Query failed: " << (unsigned int)code;
+        LOG(VERBOSE) << "Query failed: " << (unsigned int)code;
     }
 
     auto now = std::chrono::steady_clock::now();
@@ -233,12 +233,12 @@ void DnsTlsDispatcher::forceCleanup(unsigned netId) {
 
 DnsTlsTransport::Result DnsTlsDispatcher::queryInternal(Transport& xport,
                                                         const netdutils::Slice query) {
-    LOG(DEBUG) << "Sending query of length " << query.size();
+    LOG(VERBOSE) << "Sending query of length " << query.size();
 
     // If dot_async_handshake is not set, the call might block in some cases; otherwise,
     // the call should return very soon.
     auto res = xport.transport.query(query);
-    LOG(DEBUG) << "Awaiting response";
+    LOG(VERBOSE) << "Awaiting response";
 
     if (xport.timeout().count() == -1) {
         // Infinite timeout.
@@ -319,7 +319,7 @@ DnsTlsDispatcher::Transport* DnsTlsDispatcher::addTransport(const DnsTlsServer& 
 
     ret = new Transport(server, mark, netId, mFactory.get(), revalidationEnabled, triggerThr,
                         unusableThr, queryTimeout);
-    LOG(DEBUG) << "Transport is initialized with { " << triggerThr << ", " << unusableThr << ", "
+    LOG(VERBOSE) << "Transport is initialized with { " << triggerThr << ", " << unusableThr << ", "
                << queryTimeout << "ms }"
                << " for server { " << server.toIpString() << "/" << server.name << " }";
 

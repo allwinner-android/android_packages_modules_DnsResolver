@@ -112,23 +112,23 @@ bool DnsTlsFrontend::startServer() {
     for (const addrinfo* ai = frontend_ai_res; ai; ai = ai->ai_next) {
         android::base::unique_fd s(socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol));
         if (s.get() < 0) {
-            PLOG(INFO) << "ignore creating socket failed " << s.get();
+            PLOG(VERBOSE) << "ignore creating socket failed " << s.get();
             continue;
         }
         enableSockopt(s.get(), SOL_SOCKET, SO_REUSEADDR).ignoreError();
         std::string host_str = addr2str(ai->ai_addr, ai->ai_addrlen);
         if (bind(s.get(), ai->ai_addr, ai->ai_addrlen)) {
-            PLOG(INFO) << "failed to bind TCP " << host_str.c_str() << ":"
+            PLOG(VERBOSE) << "failed to bind TCP " << host_str.c_str() << ":"
                        << listen_service_.c_str();
             continue;
         }
-        LOG(INFO) << "bound to TCP " << host_str.c_str() << ":" << listen_service_.c_str();
+        LOG(VERBOSE) << "bound to TCP " << host_str.c_str() << ":" << listen_service_.c_str();
         socket_ = std::move(s);
         break;
     }
 
     if (listen(socket_.get(), 1) < 0) {
-        PLOG(INFO) << "failed to listen socket " << socket_.get();
+        PLOG(VERBOSE) << "failed to listen socket " << socket_.get();
         return false;
     }
 
@@ -146,7 +146,7 @@ bool DnsTlsFrontend::startServer() {
     backend_socket_.reset(socket(backend_ai_res->ai_family, backend_ai_res->ai_socktype,
                                  backend_ai_res->ai_protocol));
     if (backend_socket_.get() < 0) {
-        PLOG(INFO) << "backend socket " << backend_socket_.get() << " creation failed";
+        PLOG(VERBOSE) << "backend socket " << backend_socket_.get() << " creation failed";
         return false;
     }
 
@@ -158,7 +158,7 @@ bool DnsTlsFrontend::startServer() {
     // Set up eventfd socket.
     event_fd_.reset(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
     if (event_fd_.get() == -1) {
-        PLOG(INFO) << "failed to create eventfd " << event_fd_.get();
+        PLOG(VERBOSE) << "failed to create eventfd " << event_fd_.get();
         return false;
     }
 
@@ -166,12 +166,12 @@ bool DnsTlsFrontend::startServer() {
         std::lock_guard lock(update_mutex_);
         handler_thread_ = std::thread(&DnsTlsFrontend::requestHandler, this);
     }
-    LOG(INFO) << "server started successfully";
+    LOG(VERBOSE) << "server started successfully";
     return true;
 }
 
 void DnsTlsFrontend::requestHandler() {
-    LOG(DEBUG) << "Request handler started";
+    LOG(VERBOSE) << "Request handler started";
     enum { EVENT_FD = 0, LISTEN_FD = 1 };
     pollfd fds[2] = {{.fd = event_fd_.get(), .events = POLLIN},
                      {.fd = socket_.get(), .events = POLLIN}};
@@ -192,18 +192,18 @@ void DnsTlsFrontend::requestHandler() {
             sockaddr_storage addr;
             socklen_t len = sizeof(addr);
 
-            LOG(DEBUG) << "Trying to accept a client";
+            LOG(VERBOSE) << "Trying to accept a client";
             android::base::unique_fd client(
                     accept4(socket_.get(), reinterpret_cast<sockaddr*>(&addr), &len, SOCK_CLOEXEC));
             if (client.get() < 0) {
                 // Stop
-                PLOG(INFO) << "failed to accept client socket " << client.get();
+                PLOG(VERBOSE) << "failed to accept client socket " << client.get();
                 break;
             }
 
             accept_connection_count_++;
             if (hangOnHandshake_) {
-                LOG(DEBUG) << "TEST ONLY: unresponsive to SSL handshake";
+                LOG(VERBOSE) << "TEST ONLY: unresponsive to SSL handshake";
 
                 // The previous fd already stored in clientFd will be closed automatically.
                 clientFd = std::move(client);
@@ -213,11 +213,11 @@ void DnsTlsFrontend::requestHandler() {
             bssl::UniquePtr<SSL> ssl(SSL_new(ctx_.get()));
             SSL_set_fd(ssl.get(), client.get());
 
-            LOG(DEBUG) << "Doing SSL handshake";
+            LOG(VERBOSE) << "Doing SSL handshake";
             if (SSL_accept(ssl.get()) <= 0) {
-                LOG(INFO) << "SSL negotiation failure";
+                LOG(VERBOSE) << "SSL negotiation failure";
             } else {
-                LOG(DEBUG) << "SSL handshake complete";
+                LOG(VERBOSE) << "SSL handshake complete";
                 // Increment queries_ as late as possible, because it represents
                 // a query that is fully processed, and the response returned to the
                 // client, including cleanup actions.
@@ -225,12 +225,12 @@ void DnsTlsFrontend::requestHandler() {
             }
 
             if (passiveClose_) {
-                LOG(DEBUG) << "hold the current connection until next connection request";
+                LOG(VERBOSE) << "hold the current connection until next connection request";
                 clientFd = std::move(client);
             }
         }
     }
-    LOG(DEBUG) << "Ending loop";
+    LOG(VERBOSE) << "Ending loop";
 }
 
 int DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
@@ -242,7 +242,7 @@ again:
     do {
         uint8_t queryHeader[2];
         if (SSL_read(ssl, &queryHeader, 2) != 2) {
-            LOG(INFO) << "Not enough header bytes";
+            LOG(VERBOSE) << "Not enough header bytes";
             return queryCounts;
         }
         const uint16_t qlen = (queryHeader[0] << 8) | queryHeader[1];
@@ -251,14 +251,14 @@ again:
         while (qbytes < qlen) {
             int ret = SSL_read(ssl, query + qbytes, qlen - qbytes);
             if (ret <= 0) {
-                LOG(INFO) << "Error while reading query";
+                LOG(VERBOSE) << "Error while reading query";
                 return queryCounts;
             }
             qbytes += ret;
         }
         int sent = send(backend_socket_.get(), query, qlen, 0);
         if (sent != qlen) {
-            LOG(INFO) << "Failed to send query";
+            LOG(VERBOSE) << "Failed to send query";
             return queryCounts;
         }
 
@@ -278,7 +278,7 @@ again:
         uint8_t recv_buffer[max_size];
         int rlen = recv(backend_socket_.get(), recv_buffer, max_size, 0);
         if (rlen <= 0) {
-            LOG(INFO) << "Failed to receive response";
+            LOG(VERBOSE) << "Failed to receive response";
             return queryCounts;
         }
         uint8_t responseHeader[2];
@@ -299,7 +299,7 @@ again:
     }
 
     const int replyLen = reply.size();
-    LOG(DEBUG) << "Sending " << queryCounts << "queries at once, byte = " << replyLen;
+    LOG(VERBOSE) << "Sending " << queryCounts << "queries at once, byte = " << replyLen;
     if (SSL_write(ssl, reply.data(), replyLen) != replyLen) {
         LOG(WARNING) << "Failed to write response body";
     }
@@ -312,18 +312,18 @@ again:
         }
     }
 
-    LOG(DEBUG) << __func__ << " return: " << queryCounts;
+    LOG(VERBOSE) << __func__ << " return: " << queryCounts;
     return queryCounts;
 }
 
 bool DnsTlsFrontend::stopServer() {
     std::lock_guard lock(update_mutex_);
     if (!running()) {
-        LOG(INFO) << "server not running";
+        LOG(VERBOSE) << "server not running";
         return false;
     }
 
-    LOG(INFO) << "stopping frontend";
+    LOG(VERBOSE) << "stopping frontend";
     if (!sendToEventFd()) {
         return false;
     }
@@ -332,7 +332,7 @@ bool DnsTlsFrontend::stopServer() {
     backend_socket_.reset();
     event_fd_.reset();
     ctx_.reset();
-    LOG(INFO) << "frontend stopped successfully";
+    LOG(VERBOSE) << "frontend stopped successfully";
     return true;
 }
 
@@ -350,7 +350,7 @@ bool DnsTlsFrontend::waitForQueries(int expected_count) const {
         usleep(intervalMs * 1000);
         if (done) {
             // For ensuring that calls have sufficient headroom for slow machines
-            LOG(DEBUG) << "Query arrived in " << count << "/" << limit << " of allotted time";
+            LOG(VERBOSE) << "Query arrived in " << count << "/" << limit << " of allotted time";
             return true;
         }
     }
@@ -360,7 +360,7 @@ bool DnsTlsFrontend::waitForQueries(int expected_count) const {
 bool DnsTlsFrontend::sendToEventFd() {
     const uint64_t data = 1;
     if (const ssize_t rt = write(event_fd_.get(), &data, sizeof(data)); rt != sizeof(data)) {
-        PLOG(INFO) << "failed to write eventfd, rt=" << rt;
+        PLOG(VERBOSE) << "failed to write eventfd, rt=" << rt;
         return false;
     }
     return true;
@@ -369,7 +369,7 @@ bool DnsTlsFrontend::sendToEventFd() {
 void DnsTlsFrontend::handleEventFd() {
     int64_t data;
     if (const ssize_t rt = read(event_fd_.get(), &data, sizeof(data)); rt != sizeof(data)) {
-        PLOG(INFO) << "ignore reading eventfd failed, rt=" << rt;
+        PLOG(VERBOSE) << "ignore reading eventfd failed, rt=" << rt;
     }
 }
 

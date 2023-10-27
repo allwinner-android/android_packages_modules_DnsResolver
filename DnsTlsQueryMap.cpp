@@ -149,7 +149,7 @@ void DnsTlsQueryMap::onResponse(std::vector<uint8_t> response) {
     const uint8_t* data = it->second.query.query.data();
     r.response[0] = data[0];
     r.response[1] = data[1];
-    LOG(DEBUG) << "Sending result to dispatcher";
+    LOG(VERBOSE) << "Sending result to dispatcher";
     it->second.result.set_value(std::move(r));
     mQueries.erase(it);
 }

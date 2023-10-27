@@ -368,7 +368,7 @@ int android_getaddrinfofornetcontext(const char* hostname, const char* servname,
             if (tmp.ai_socktype == ANY && ex.e_socktype != ANY) tmp.ai_socktype = ex.e_socktype;
             if (tmp.ai_protocol == ANY && ex.e_protocol != ANY) tmp.ai_protocol = ex.e_protocol;
 
-            LOG(DEBUG) << __func__ << ": explore_numeric: ai_family=" << tmp.ai_family
+            LOG(VERBOSE) << __func__ << ": explore_numeric: ai_family=" << tmp.ai_family
                        << " ai_socktype=" << tmp.ai_socktype << " ai_protocol=" << tmp.ai_protocol;
             if (hostname == nullptr)
                 error = explore_null(&tmp, servname, &cur->ai_next);
@@ -441,7 +441,7 @@ int resolv_getaddrinfo(const char* _Nonnull hostname, const char* servname, cons
         if (tmp.ai_socktype == ANY && ex.e_socktype != ANY) tmp.ai_socktype = ex.e_socktype;
         if (tmp.ai_protocol == ANY && ex.e_protocol != ANY) tmp.ai_protocol = ex.e_protocol;
 
-        LOG(DEBUG) << __func__ << ": explore_fqdn(): ai_family=" << tmp.ai_family
+        LOG(VERBOSE) << __func__ << ": explore_fqdn(): ai_family=" << tmp.ai_family
                    << " ai_socktype=" << tmp.ai_socktype << " ai_protocol=" << tmp.ai_protocol;
         error = explore_fqdn(&tmp, hostname, servname, &cur->ai_next, netcontext, event);
 
@@ -503,7 +503,7 @@ static int explore_null(const struct addrinfo* pai, const char* servname, struct
     struct addrinfo sentinel;
     int error;
 
-    LOG(DEBUG) << __func__;
+    LOG(VERBOSE) << __func__;
 
     assert(pai != NULL);
     /* servname may be NULL */
@@ -616,7 +616,7 @@ static int explore_numeric_scope(const struct addrinfo* pai, const char* hostnam
     const char *cp, *scope, *addr;
     struct sockaddr_in6* sin6;
 
-    LOG(DEBUG) << __func__;
+    LOG(VERBOSE) << __func__;
 
     assert(pai != NULL);
     /* hostname may be NULL */
@@ -954,7 +954,7 @@ static struct addrinfo* getanswer(const std::vector<uint8_t>& answer, int anslen
             }
         } else if (type != qtype) {
             if (type != T_KEY && type != T_SIG)
-                LOG(DEBUG) << __func__ << ": asked for \"" << qname << " " << p_class(C_IN) << " "
+                LOG(VERBOSE) << __func__ << ": asked for \"" << qname << " " << p_class(C_IN) << " "
                            << p_type(qtype) << "\", got type \"" << p_type(type) << "\"";
             cp += n;
             continue; /* XXX - had_error++ ? */
@@ -963,7 +963,7 @@ static struct addrinfo* getanswer(const std::vector<uint8_t>& answer, int anslen
             case T_A:
             case T_AAAA:
                 if (strcasecmp(canonname, bp) != 0) {
-                    LOG(DEBUG) << __func__ << ": asked for \"" << canonname << "\", got \"" << bp
+                    LOG(VERBOSE) << __func__ << ": asked for \"" << canonname << "\", got \"" << bp
                                << "\"";
                     cp += n;
                     continue; /* XXX - had_error++ ? */
@@ -1617,7 +1617,7 @@ QueryResult doQuery(const char* name, res_target* t, res_state res,
     const int type = t->qtype;
     const int anslen = t->answer.size();
 
-    LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
+    LOG(VERBOSE) << __func__ << ": (" << cl << ", " << type << ")";
 
     uint8_t buf[MAXPACKET];
 
@@ -1652,14 +1652,14 @@ QueryResult doQuery(const char* name, res_target* t, res_state res,
         if ((res_temp.netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
             (res_temp._flags & RES_F_EDNS0ERR)) {
-            LOG(DEBUG) << __func__ << ": retry without EDNS0";
+            LOG(VERBOSE) << __func__ << ": retry without EDNS0";
             n = res_nmkquery(QUERY, name, cl, type, /*data=*/nullptr, /*datalen=*/0, buf,
                              sizeof(buf), res_temp.netcontext_flags);
             n = res_nsend(&res_temp, buf, n, t->answer.data(), anslen, &rcode, 0);
         }
     }
 
-    LOG(DEBUG) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
+    LOG(VERBOSE) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
 
     t->n = n;
     return {
@@ -1753,7 +1753,7 @@ static int res_queryN(const char* name, res_target* target, res_state res, int* 
         int type = t->qtype;
         const int anslen = t->answer.size();
 
-        LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
+        LOG(VERBOSE) << __func__ << ": (" << cl << ", " << type << ")";
 
         n = res_nmkquery(QUERY, name, cl, type, /*data=*/nullptr, /*datalen=*/0, buf, sizeof(buf),
                          res->netcontext_flags);
@@ -1779,11 +1779,11 @@ static int res_queryN(const char* name, res_target* target, res_state res, int* 
             if ((res->netcontext_flags &
                  (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
                 (res->_flags & RES_F_EDNS0ERR) && !retried) {
-                LOG(DEBUG) << __func__ << ": retry without EDNS0";
+                LOG(VERBOSE) << __func__ << ": retry without EDNS0";
                 retried = true;
                 goto again;
             }
-            LOG(DEBUG) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
+            LOG(VERBOSE) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
             continue;
         }
 

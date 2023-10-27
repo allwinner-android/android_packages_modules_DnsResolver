@@ -304,7 +304,7 @@ class ResolverTest : public ::testing::Test {
             const auto dnsEvent = sDnsMetricsListener->popDnsEvent();
             ASSERT_TRUE(dnsEvent.has_value()) << "Expected DnsEvent " << expect;
             if (dnsEvent.value() == expect) break;
-            LOG(INFO) << "Skip unexpected DnsEvent: " << dnsEvent.value();
+            LOG(VERBOSE) << "Skip unexpected DnsEvent: " << dnsEvent.value();
         } while (true);
 
         while (returnCode == 0 || returnCode == RCODE_TIMEOUT) {
@@ -318,7 +318,7 @@ class ResolverTest : public ::testing::Test {
                          IDnsResolverUnsolicitedEventListener::DNS_HEALTH_RESULT_TIMEOUT)) {
                 break;
             }
-            LOG(INFO) << "Skip unexpected dns health result:" << result.value();
+            LOG(VERBOSE) << "Skip unexpected dns health result:" << result.value();
         }
     }
 
@@ -1671,9 +1671,9 @@ TEST_F(ResolverTest, MaxServerPrune_Binder) {
     // ~DnsTlsFrontend() because the TLS server loop threads can't be terminated.
     // So, wait for private DNS validation done before stopping backend DNS servers.
     for (int i = 0; i < MAXNS; i++) {
-        LOG(INFO) << "Waiting for private DNS validation on " << tls[i]->listen_address() << ".";
+        LOG(VERBOSE) << "Waiting for private DNS validation on " << tls[i]->listen_address() << ".";
         EXPECT_TRUE(WaitForPrivateDnsValidation(tls[i]->listen_address(), true));
-        LOG(INFO) << "private DNS validation on " << tls[i]->listen_address() << " done.";
+        LOG(VERBOSE) << "private DNS validation on " << tls[i]->listen_address() << " done.";
     }
 
     std::vector<std::string> res_servers;
@@ -5954,7 +5954,7 @@ TEST_F(ResolverTest, DnsServerSelection) {
         EXPECT_GE(dns2Count, dns3Count);
 
         const int averageTime = accumulatedTime / queryNum;
-        LOG(INFO) << "ResolverTest#DnsServerSelection: averageTime " << averageTime << "us";
+        LOG(VERBOSE) << "ResolverTest#DnsServerSelection: averageTime " << averageTime << "us";
 
         dns1.clearQueries();
         dns2.clearQueries();

@@ -534,8 +534,8 @@ void DNSResponder::removeMappingBinaryPacket(const std::vector<uint8_t>& query) 
     std::lock_guard lock(mappings_mutex_);
     if (!packet_mappings_.erase(query)) {
         LOG(ERROR) << "Cannot remove mapping, not present in registered BinaryPacket mappings";
-        LOG(INFO) << "Hex dump:";
-        LOG(INFO) << android::netdutils::toHex(
+        LOG(VERBOSE) << "Hex dump:";
+        LOG(VERBOSE) << android::netdutils::toHex(
                 Slice(const_cast<uint8_t*>(query.data()), query.size()), 32);
     }
 }
@@ -626,19 +626,19 @@ bool DNSResponder::startServer() {
         return false;
     }
 
-    LOG(INFO) << "adding UDP socket to epoll";
+    LOG(VERBOSE) << "adding UDP socket to epoll";
     if (!addFd(udp_socket_.get(), EPOLLIN)) {
         LOG(ERROR) << "failed to add the UDP socket to epoll";
         return false;
     }
 
-    LOG(INFO) << "adding TCP socket to epoll";
+    LOG(VERBOSE) << "adding TCP socket to epoll";
     if (!addFd(tcp_socket_.get(), EPOLLIN)) {
         LOG(ERROR) << "failed to add the TCP socket to epoll";
         return false;
     }
 
-    LOG(INFO) << "adding eventfd to epoll";
+    LOG(VERBOSE) << "adding eventfd to epoll";
     if (!addFd(event_fd_.get(), EPOLLIN)) {
         LOG(ERROR) << "failed to add the eventfd to epoll";
         return false;
@@ -648,7 +648,7 @@ bool DNSResponder::startServer() {
         std::lock_guard lock(update_mutex_);
         handler_thread_ = std::thread(&DNSResponder::requestHandler, this);
     }
-    LOG(INFO) << "server started successfully";
+    LOG(VERBOSE) << "server started successfully";
     return true;
 }
 
@@ -658,7 +658,7 @@ bool DNSResponder::stopServer() {
         LOG(ERROR) << "server not running";
         return false;
     }
-    LOG(INFO) << "stopping server";
+    LOG(VERBOSE) << "stopping server";
     if (!sendToEventFd()) {
         return false;
     }
@@ -667,7 +667,7 @@ bool DNSResponder::stopServer() {
     event_fd_.reset();
     udp_socket_.reset();
     tcp_socket_.reset();
-    LOG(INFO) << "server stopped successfully";
+    LOG(VERBOSE) << "server stopped successfully";
     return true;
 }
 
@@ -729,7 +729,7 @@ void DNSResponder::requestHandler() {
 
 bool DNSResponder::handleDNSRequest(const char* buffer, ssize_t len, int protocol, char* response,
                                     size_t* response_len) const {
-    LOG(DEBUG) << "request: '" << str2hex(buffer, len) << "', on " << dnsproto2str(protocol);
+    LOG(VERBOSE) << "request: '" << str2hex(buffer, len) << "', on " << dnsproto2str(protocol);
     const char* buffer_end = buffer + len;
     DNSHeader header;
     const char* cur = header.read(buffer, buffer_end);
@@ -743,25 +743,25 @@ bool DNSResponder::handleDNSRequest(const char* buffer, ssize_t len, int protoco
         return false;
     }
     if (header.opcode != ns_opcode::ns_o_query) {
-        LOG(INFO) << "unsupported request opcode received";
+        LOG(VERBOSE) << "unsupported request opcode received";
         return makeErrorResponse(&header, ns_rcode::ns_r_notimpl, response, response_len);
     }
     if (header.questions.empty()) {
-        LOG(INFO) << "no questions present";
+        LOG(VERBOSE) << "no questions present";
         return makeErrorResponse(&header, ns_rcode::ns_r_formerr, response, response_len);
     }
     if (!header.answers.empty()) {
-        LOG(INFO) << "already " << header.answers.size() << " answers present in query";
+        LOG(VERBOSE) << "already " << header.answers.size() << " answers present in query";
         return makeErrorResponse(&header, ns_rcode::ns_r_formerr, response, response_len);
     }
 
     if (edns_ == Edns::FORMERR_UNCOND) {
-        LOG(INFO) << "force to return RCODE FORMERR";
+        LOG(VERBOSE) << "force to return RCODE FORMERR";
         return makeErrorResponse(&header, ns_rcode::ns_r_formerr, response, response_len);
     }
 
     if (!header.additionals.empty() && edns_ != Edns::ON) {
-        LOG(INFO) << "DNS request has an additional section (assumed EDNS). Simulating an ancient "
+        LOG(VERBOSE) << "DNS request has an additional section (assumed EDNS). Simulating an ancient "
                      "(pre-EDNS) server, and returning "
                   << (edns_ == Edns::FORMERR_ON_EDNS ? "RCODE FORMERR." : "no response.");
         if (edns_ == Edns::FORMERR_ON_EDNS) {
@@ -783,7 +783,7 @@ bool DNSResponder::handleDNSRequest(const char* buffer, ssize_t len, int protoco
             LOG(ERROR) << "Returning no response";
             return false;
         } else {
-            LOG(INFO) << "returning RCODE " << static_cast<int>(error_rcode_)
+            LOG(VERBOSE) << "returning RCODE " << static_cast<int>(error_rcode_)
                       << " in accordance with probability distribution";
             return makeErrorResponse(&header, error_rcode_, response, response_len);
         }
@@ -833,7 +833,7 @@ bool DNSResponder::addAnswerRecords(const DNSQuestion& question,
 
     if (answers->size() == 0) {
         // TODO(imaipi): handle correctly
-        LOG(INFO) << "no mapping found for " << question.qname.name << " "
+        LOG(VERBOSE) << "no mapping found for " << question.qname.name << " "
                   << dnstype2str(question.qtype) << ", lazily refusing to add an answer";
     }
 
@@ -955,7 +955,7 @@ bool DNSResponder::makeResponse(DNSHeader* header, int protocol, char* response,
     // section 6.2.5 and section 7.
     if (protocol == IPPROTO_UDP && buffer_len > kMaximumUdpSize &&
         !hasOptPseudoRR(header) /* non-EDNS */) {
-        LOG(INFO) << "Return truncated response because original response length " << buffer_len
+        LOG(VERBOSE) << "Return truncated response because original response length " << buffer_len
                   << " is larger than " << kMaximumUdpSize << " bytes.";
         return makeTruncatedResponse(header, response, response_len);
     }
@@ -973,7 +973,7 @@ bool DNSResponder::makeResponseFromAddressOrHostname(DNSHeader* header, char* re
                                                      size_t* response_len) const {
     for (const DNSQuestion& question : header->questions) {
         if (question.qclass != ns_class::ns_c_in && question.qclass != ns_class::ns_c_any) {
-            LOG(INFO) << "unsupported question class " << question.qclass;
+            LOG(VERBOSE) << "unsupported question class " << question.qclass;
             return makeErrorResponse(header, ns_rcode::ns_r_notimpl, response, response_len);
         }
 
@@ -996,12 +996,12 @@ bool DNSResponder::makeResponseFromDnsHeader(DNSHeader* header, char* response,
     // TODO: Perhaps add support for multi-question records.
     const std::vector<DNSQuestion>& questions = header->questions;
     if (questions.size() != 1) {
-        LOG(INFO) << "unsupported question count " << questions.size();
+        LOG(VERBOSE) << "unsupported question count " << questions.size();
         return makeErrorResponse(header, ns_rcode::ns_r_notimpl, response, response_len);
     }
 
     if (questions[0].qclass != ns_class::ns_c_in && questions[0].qclass != ns_class::ns_c_any) {
-        LOG(INFO) << "unsupported question class " << questions[0].qclass;
+        LOG(VERBOSE) << "unsupported question class " << questions[0].qclass;
         return makeErrorResponse(header, ns_rcode::ns_r_notimpl, response, response_len);
     }
 
@@ -1020,7 +1020,7 @@ bool DNSResponder::makeResponseFromDnsHeader(DNSHeader* header, char* response,
         header->rd = rd;
     } else {
         // TODO: handle correctly. See also TODO in addAnswerRecords().
-        LOG(INFO) << "no mapping found for " << name << " " << dnstype2str(qtype)
+        LOG(VERBOSE) << "no mapping found for " << name << " " << dnstype2str(qtype)
                   << ", couldn't build a response from DNSHeader mapping";
 
         // Note that do nothing as makeResponseFromAddressOrHostname() if no mapping is found. It
@@ -1060,7 +1060,7 @@ bool DNSResponder::makeResponseFromBinaryPacket(DNSHeader* header, char* respons
     } else {
         // TODO: handle correctly. See also TODO in addAnswerRecords().
         // TODO: Perhaps dump packet content to indicate which query failed.
-        LOG(INFO) << "no mapping found, couldn't build a response from BinaryPacket mapping";
+        LOG(VERBOSE) << "no mapping found, couldn't build a response from BinaryPacket mapping";
         // Note that do nothing as makeResponseFromAddressOrHostname() if no mapping is found. It
         // just changes the QR flag from query (0) to response (1) in the query. Then, send the
         // modified query back as a response.
@@ -1131,7 +1131,7 @@ void DNSResponder::handleQuery(int protocol) {
             }
             break;
     }
-    LOG(DEBUG) << "read " << len << " bytes on " << dnsproto2str(protocol);
+    LOG(VERBOSE) << "read " << len << " bytes on " << dnsproto2str(protocol);
     std::lock_guard lock(cv_mutex_);
     char response[16384];
     size_t response_len = sizeof(response);
@@ -1173,7 +1173,7 @@ void DNSResponder::handleQuery(int protocol) {
         }
         const std::string host_str = addr2str(reinterpret_cast<const sockaddr*>(&sa), sa_len);
         if (len > 0) {
-            LOG(DEBUG) << "sent " << len << " bytes to " << host_str;
+            LOG(VERBOSE) << "sent " << len << " bytes to " << host_str;
         } else {
             const char* method_str = (protocol == IPPROTO_TCP) ? "write()" : "sendto()";
             LOG(ERROR) << method_str << " failed for " << host_str;
@@ -1205,7 +1205,7 @@ bool DNSResponder::sendToEventFd() {
 void DNSResponder::handleEventFd() {
     int64_t data;
     if (const ssize_t rt = read(event_fd_.get(), &data, sizeof(data)); rt != sizeof(data)) {
-        PLOG(INFO) << "ignore reading eventfd failed, rt=" << rt;
+        PLOG(VERBOSE) << "ignore reading eventfd failed, rt=" << rt;
     }
 }
 
@@ -1241,7 +1241,7 @@ android::base::unique_fd DNSResponder::createListeningSocket(int socket_type) {
                         << listen_service_;
             continue;
         }
-        LOG(INFO) << "bound to " << socket_str << " " << host_str << ":" << listen_service_;
+        LOG(VERBOSE) << "bound to " << socket_str << " " << host_str << ":" << listen_service_;
         return fd;
     }
     return {};

@@ -85,7 +85,7 @@ base::Result<void> checkDnsResponse(const std::span<const uint8_t> answer) {
     }
 
     const int ancount = (answer[6] << 8) | answer[7];
-    LOG(DEBUG) << "answer count: " << ancount;
+    LOG(VERBOSE) << "answer count: " << ancount;
 
     // TODO: Further validate the response contents (check for valid AAAA record, ...).
     // Note that currently, integration tests rely on this function accepting a
@@ -161,7 +161,7 @@ std::future<DnsTlsTransport::Result> DnsTlsTransport::query(const netdutils::Sli
     }
 
     if (!mSocket) {
-        LOG(DEBUG) << "No socket for query.  Opening socket and sending.";
+        LOG(VERBOSE) << "No socket for query.  Opening socket and sending.";
         doConnect();
     } else {
         sendQuery(record->query);
@@ -185,7 +185,7 @@ bool DnsTlsTransport::sendQuery(const DnsTlsQueryMap::Query& q) {
 }
 
 void DnsTlsTransport::doConnect() {
-    LOG(DEBUG) << "Constructing new socket";
+    LOG(VERBOSE) << "Constructing new socket";
     mSocket = mFactory->createDnsTlsSocket(mServer, mMark, this, &mCache);
 
     bool success = true;
@@ -196,16 +196,16 @@ void DnsTlsTransport::doConnect() {
 
     if (success) {
         auto queries = mQueries.getAll();
-        LOG(DEBUG) << "Initialization succeeded.  Reissuing " << queries.size() << " queries.";
+        LOG(VERBOSE) << "Initialization succeeded.  Reissuing " << queries.size() << " queries.";
         for(auto& q : queries) {
             if (!sendQuery(q)) {
                 break;
             }
         }
     } else {
-        LOG(DEBUG) << "Initialization failed.";
+        LOG(VERBOSE) << "Initialization failed.";
         mSocket.reset();
-        LOG(DEBUG) << "Failing all pending queries.";
+        LOG(VERBOSE) << "Failing all pending queries.";
         mQueries.clear();
     }
 }
@@ -242,19 +242,19 @@ void DnsTlsTransport::doReconnect() {
     }
     mQueries.cleanup();
     if (!mQueries.empty()) {
-        LOG(DEBUG) << "Fast reconnect to retry remaining queries";
+        LOG(VERBOSE) << "Fast reconnect to retry remaining queries";
         doConnect();
     } else {
-        LOG(DEBUG) << "No pending queries.  Going idle.";
+        LOG(VERBOSE) << "No pending queries.  Going idle.";
         mSocket.reset();
     }
 }
 
 DnsTlsTransport::~DnsTlsTransport() {
-    LOG(DEBUG) << "Destructor";
+    LOG(VERBOSE) << "Destructor";
     {
         std::lock_guard guard(mLock);
-        LOG(DEBUG) << "Locked destruction procedure";
+        LOG(VERBOSE) << "Locked destruction procedure";
         mQueries.clear();
         mClosing = true;
     }
@@ -262,21 +262,21 @@ DnsTlsTransport::~DnsTlsTransport() {
     // It's safe for that thread to run now because mClosing is true (and mQueries is empty),
     // but we need to wait for it to finish before allowing destruction to proceed.
     if (mReconnectThread) {
-        LOG(DEBUG) << "Waiting for reconnect thread to terminate";
+        LOG(VERBOSE) << "Waiting for reconnect thread to terminate";
         mReconnectThread->join();
         mReconnectThread.reset();
     }
     // Ensure that the socket is destroyed, and can clean up its callback threads,
     // before any of this object's fields become invalid.
     mSocket.reset();
-    LOG(DEBUG) << "Destructor completed";
+    LOG(VERBOSE) << "Destructor completed";
 }
 
 // static
 // TODO: Use this function to preheat the session cache.
 // That may require moving it to DnsTlsDispatcher.
 bool DnsTlsTransport::validate(const DnsTlsServer& server, uint32_t mark) {
-    LOG(DEBUG) << "Beginning validation with mark " << std::hex << mark;
+    LOG(VERBOSE) << "Beginning validation with mark " << std::hex << mark;
 
     const std::vector<uint8_t> query = makeDnsQuery();
     DnsTlsSocketFactory factory;
@@ -313,7 +313,7 @@ bool DnsTlsTransport::validate(const DnsTlsServer& server, uint32_t mark) {
         return true;
     }
 
-    LOG(INFO) << fmt::format("Use flags: latencyFactor={}, latencyOffsetMs={}", latencyFactor,
+    LOG(VERBOSE) << fmt::format("Use flags: latencyFactor={}, latencyOffsetMs={}", latencyFactor,
                              latencyOffsetMs);
 
     int64_t udpProbeTimeUs = 0;
@@ -325,7 +325,7 @@ bool DnsTlsTransport::validate(const DnsTlsServer& server, uint32_t mark) {
             auto result = sendUdpQuery(server.addr().ip(), mark, query);
             udpProbeTimeUs = stopwatch.timeTakenUs();
             udpProbeGotAnswer = result.ok();
-            LOG(INFO) << fmt::format("UDP probe for {} {}, took {:.3f}ms", server.toIpString(),
+            LOG(VERBOSE) << fmt::format("UDP probe for {} {}, took {:.3f}ms", server.toIpString(),
                                      (udpProbeGotAnswer ? "succeeded" : "failed"),
                                      udpProbeTimeUs / 1000.0);
 
@@ -353,7 +353,7 @@ bool DnsTlsTransport::validate(const DnsTlsServer& server, uint32_t mark) {
             }
         }
 
-        LOG(INFO) << fmt::format("DoT probe for {} {}, took {:.3f}ms", server.toIpString(),
+        LOG(VERBOSE) << fmt::format("DoT probe for {} {}, took {:.3f}ms", server.toIpString(),
                                  (dotProbeGotAnswer ? "succeeded" : "failed"),
                                  dotProbeTimeUs / 1000.0);
     });

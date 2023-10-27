@@ -78,7 +78,7 @@ class ResolverStressTest : public ::testing::Test {
             thread.join();
         }
         auto t1 = std::chrono::steady_clock::now();
-        LOG(INFO) << StringPrintf("%u hosts, %u threads, %u queries, %Es", num_hosts, num_threads,
+        LOG(VERBOSE) << StringPrintf("%u hosts, %u threads, %u queries, %Es", num_hosts, num_threads,
                                   num_queries, std::chrono::duration<double>(t1 - t0).count());
 
         std::vector<std::string> res_servers;

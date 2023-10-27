@@ -437,37 +437,37 @@ bool onlyNonSpecialUseIPv4Addresses(const addrinfo* res) {
 }
 
 void logDnsQueryResult(const struct hostent* hp) {
-    if (!WOULD_LOG(DEBUG)) return;
+    if (!WOULD_LOG(VERBOSE)) return;
     if (hp == nullptr) return;
 
-    LOG(DEBUG) << __func__ << ": DNS records:";
+    LOG(VERBOSE) << __func__ << ": DNS records:";
     for (int i = 0; hp->h_addr_list[i] != nullptr; i++) {
         char ip_addr[INET6_ADDRSTRLEN];
         if (inet_ntop(hp->h_addrtype, hp->h_addr_list[i], ip_addr, sizeof(ip_addr)) != nullptr) {
-            LOG(DEBUG) << __func__ << ": [" << i << "] " << hp->h_addrtype;
+            LOG(VERBOSE) << __func__ << ": [" << i << "] " << hp->h_addrtype;
         } else {
-            PLOG(DEBUG) << __func__ << ": [" << i << "] numeric hostname translation fail";
+            PLOG(VERBOSE) << __func__ << ": [" << i << "] numeric hostname translation fail";
         }
     }
 }
 
 void logDnsQueryResult(const addrinfo* res) {
-    if (!WOULD_LOG(DEBUG)) return;
+    if (!WOULD_LOG(VERBOSE)) return;
     if (res == nullptr) return;
 
     int i;
     const addrinfo* ai;
-    LOG(DEBUG) << __func__ << ": DNS records:";
+    LOG(VERBOSE) << __func__ << ": DNS records:";
     for (ai = res, i = 0; ai; ai = ai->ai_next, i++) {
         if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) continue;
         char ip_addr[INET6_ADDRSTRLEN];
         int ret = getnameinfo(ai->ai_addr, ai->ai_addrlen, ip_addr, sizeof(ip_addr), nullptr, 0,
                               NI_NUMERICHOST);
         if (!ret) {
-            LOG(DEBUG) << __func__ << ": [" << i << "] " << ai->ai_flags << " " << ai->ai_family
+            LOG(VERBOSE) << __func__ << ": [" << i << "] " << ai->ai_flags << " " << ai->ai_family
                        << " " << ai->ai_socktype << " " << ai->ai_protocol;
         } else {
-            LOG(DEBUG) << __func__ << ": [" << i << "] numeric hostname translation fail " << ret;
+            LOG(VERBOSE) << __func__ << ": [" << i << "] numeric hostname translation fail " << ret;
         }
     }
 }
@@ -723,7 +723,7 @@ void DnsProxyListener::GetAddrInfoHandler::doDns64Synthesis(int32_t* rv, addrinf
 }
 
 void DnsProxyListener::GetAddrInfoHandler::run() {
-    LOG(DEBUG) << "GetAddrInfoHandler::run: {" << mNetContext.app_netid << " "
+    LOG(VERBOSE) << "GetAddrInfoHandler::run: {" << mNetContext.app_netid << " "
                << mNetContext.app_mark << " " << mNetContext.dns_netid << " "
                << mNetContext.dns_mark << " " << mNetContext.uid << " " << mNetContext.flags << "}";
 
@@ -898,7 +898,7 @@ DnsProxyListener::ResNSendHandler::ResNSendHandler(SocketClient* c, std::string 
     : Handler(c), mMsg(std::move(msg)), mFlags(flags), mNetContext(netcontext) {}
 
 void DnsProxyListener::ResNSendHandler::run() {
-    LOG(DEBUG) << "ResNSendHandler::run: " << mFlags << " / {" << mNetContext.app_netid << " "
+    LOG(VERBOSE) << "ResNSendHandler::run: " << mFlags << " / {" << mNetContext.app_netid << " "
                << mNetContext.app_mark << " " << mNetContext.dns_netid << " "
                << mNetContext.dns_mark << " " << mNetContext.uid << " " << mNetContext.flags << "}";
 
@@ -1155,7 +1155,7 @@ void DnsProxyListener::GetHostByNameHandler::run() {
     event.set_latency_micros(latencyUs);
     event.set_event_type(EVENT_GETHOSTBYNAME);
 
-    LOG(DEBUG) << "GetHostByNameHandler::run: result: " << gai_strerror(rv);
+    LOG(VERBOSE) << "GetHostByNameHandler::run: result: " << gai_strerror(rv);
 
     bool success = true;
     if (hp) {
@@ -1310,7 +1310,7 @@ void DnsProxyListener::GetHostByAddrHandler::run() {
     event.set_latency_micros(latencyUs);
     event.set_event_type(EVENT_GETHOSTBYADDR);
 
-    LOG(DEBUG) << "GetHostByAddrHandler::run: result: " << gai_strerror(rv);
+    LOG(VERBOSE) << "GetHostByAddrHandler::run: result: " << gai_strerror(rv);
 
     bool success = true;
     if (hp) {
